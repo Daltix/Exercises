@@ -1,4 +1,2 @@
 # Exercises
-Contains exercises to get familiar with Python.
-
-Checkout the wiki to get started!
+Checkout the wiki to get started: https://github.com/Daltix/Exercises/wiki
