@@ -31,16 +31,15 @@ In case you get stuck you can always ask for help of course.
 You don't have to worry about strange error cases (like what if the site is offline).
 Try to document your code as much as possible.
 
+Put your solution in a new file under the solutions directory.
 
 To run the code
 ----------------
 python parsing.py
 """
 
+# TODO insert your urls here!
 URLs = [
-    'https://www.gamma.be/nl/assortiment/karcher-hogedrukreiniger-k3-home-rioolset-7-5-m-wasborstel-detergent/p/B545366',
-    'https://www.gamma.be/nl/assortiment/cando-buitendeur-cp-brussel-links-215-5x96-cm/p/B258196',
-    'https://www.gamma.be/nl/assortiment/gamma-tegellijm-poeder-grijs-5-kg/p/B108681'
 ]
 
 
@@ -84,7 +83,7 @@ def extract_product_data(html):
     about the main product on the page. You can ignore any other products which might be on the bottom of the page.
       
     The following are the most important:
-        - Name (e.g Kärcher hogedrukreiniger K3 Home + rioolset 7,5 m + wasborstel + detergent)
+        - Name (sometimes they put extra info in the product's name e.g Grasmachine 4 wielen) 
         - Current price
             Note that often prices are split in 2 like this: 
             <span>
@@ -115,7 +114,7 @@ def extract_product_data(html):
 def extract_categories(html):
     """
     There are quite some links to other categories on the website, the goal of this function is to return
-    all the ones under 'assortiment'. I added a screenshot to show what I mean.
+    all of them. I added a screenshot to show what I mean.
     For every category you should create a Category object holding the url and the name of the category.
     :param html: the html in text form.
     :return: a list of Category objects with one entry for each category under 'assortiment'.
@@ -128,6 +127,10 @@ if __name__ == '__main__':
     """
     This is the program's entry point. DO NOT EDIT THIS FUNCTION.
     """
+    if len(URLs) == 0:
+        print('ERROR - add some urls first...')
+        exit(1)
+
     # holds the products
     for url in URLs:
         response = requests.get(url)
