@@ -39,14 +39,15 @@ python parsing.py
 """
 
 # TODO insert your urls here!
-# First three URLs are the given links, the other four are added to make sure function extract_product_data works properly
+# First three URLs are the given links, the other five are added to make sure function extract_product_data works properly
 URLs = ["https://www.lidl-shop.be/nl-BE/ESMARA-Longshirt-voor-dames/p100214261",
         "https://www.lidl-shop.be/nl-BE/LIVARNOLIVING-Spiegelkast/p100211942",
         "https://www.lidl-shop.be/nl-BE/PARKSIDE-Cirkelzaagblad/p100197506",
         "https://www.lidl-shop.be/nl-BE/MIOMARE-Badjas-voor-heren/p100196928",
         "https://www.lidl-shop.be/nl-BE/VitaVerde-Keramische-pan-24-cm/p100195917",
         "https://www.lidl-shop.be/nl-BE/SHEFFIELD-Keyboardstandaard/p100206408",
-        "https://www.lidl-shop.be/nl-BE/Saxa-Loquuntur-Uno-2014/p100197423"]
+        "https://www.lidl-shop.be/nl-BE/Saxa-Loquuntur-Uno-2014/p100197423",
+        "https://www.lidl-shop.be/nl-BE/Ch-teau-Guiraud-Sauternes-Grand-Cru-Class-AOP-1995/p100161050"] # The last URL is not yet displayed properly, 'à' shows up as '\u00e2'
 
 
 
@@ -83,13 +84,13 @@ class Category:
         self.name = name
 
     def __str__(self):
-        return '{category}: {url}'.format(category=name, url=url)
+        return '{category}: {url}'.format(category=self.name, url=self.url)
 
 
 def extract_product_data(html):
     soup = bs4.BeautifulSoup(html, 'html.parser')
 
-    nametag = str(soup.select('div > div > h1')[0])
+    nametag = str(soup.select('div > div > h1')[0]) # This seems to be wrong when applied on some wine products, where a <b> tag is used instead of <h1>
     pricetag_new = re.sub(r'\s+', ' ', str(soup.select('div > div > span > b')[0]))  # I did use string editing to remove tabs and newlines
     pricetag_old = str(soup.select('div > div > span > em > span'))
 
@@ -98,16 +99,16 @@ def extract_product_data(html):
     else:
         price_old = float(re.match(r'^\[<span>(?P<price>[0-9.]+)<\/span>\]$', pricetag_old).group('price'))
 
-    product_rx = re.match(r'^<h1>(?P<product1>[0-9a-zA-Z ]+).(?P<product2>[0-9a-zA-Z ]+)<\/h1>$', nametag, flags=0)
+    product_rx = re.match(r'^<h1>(?P<product1>[0-9a-zA-Z âéèêà]+).(?P<product2>[0-9a-zA-Z âéèêà]+)<\/h1>$', nametag, flags=0) # Included âéèêà in regex to avoid trouble with some wines (e.g. Chàteau, saint-émilion,etc.)
     price_new_rx = re.match(r'^<b> (?P<price1>[0-9]*)\.<sup>(?P<price2>[0-9]*)\*<\/sup>', pricetag_new, flags=0)
 
-    product = product_rx.group('product1') + product_rx.group('product2')
-    price_new = float(price_new_rx.group('price1')) + float(price_new_rx.group('price2')) / 100
+    product = product_rx.group('product1') + product_rx.group('product2') #Join product names
+    price_new = float(price_new_rx.group('price1')) + float(price_new_rx.group('price2')) / 100 # Join prices
 
     return ProductInfo(name=product, current_price=price_new, old_price=price_old)
 
 
-def extract_categories(html): # Does this also have to be made for the LIDL exercise? Since the screenshot only shows categories from the gamma website
+def extract_categories(html):
     """
     There are quite some links to other categories on the website, the goal of this function is to return
     all of them. I added a screenshot to show what I mean.
@@ -115,7 +116,20 @@ def extract_categories(html): # Does this also have to be made for the LIDL exer
     :param html: the html in text form.
     :return: a list of Category objects with one entry for each category under 'assortiment'.
     """
+    soup = bs4.BeautifulSoup(html, 'html.parser')
+
+    categories_tags = soup.select(".secondary-nav > li > a ")
+    base_URL_rx = str(soup.select(".company-area > li > a")[0])
+    base_URL = re.match(r'<a .* href="(?P<base>.+)">.*</a>', base_URL_rx).group('base')
     categories = []
+
+    for i in categories_tags:
+        a_string = re.sub(r'\s+', ' ', str(i))
+        regex = re.match(r'^<a .* href="(?P<link>.+)"> (?P<name>.+)</a>$', a_string)
+        category = regex.group('name')
+        link = base_URL + regex.group('link')
+        categories.append(Category(link, category))
+
     return categories
 
 
