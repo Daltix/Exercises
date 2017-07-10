@@ -39,7 +39,7 @@ python parsing.py
 """
 
 # TODO insert your urls here!
-# First three URLs are the given links, the other five are added to make sure function extract_product_data works properly
+# First three URL are the given links, I added the other eight to make sure function extract_product_data works properly
 URLs = ["https://www.lidl-shop.be/nl-BE/ESMARA-Longshirt-voor-dames/p100214261",
         "https://www.lidl-shop.be/nl-BE/LIVARNOLIVING-Spiegelkast/p100211942",
         "https://www.lidl-shop.be/nl-BE/PARKSIDE-Cirkelzaagblad/p100197506",
@@ -47,8 +47,10 @@ URLs = ["https://www.lidl-shop.be/nl-BE/ESMARA-Longshirt-voor-dames/p100214261",
         "https://www.lidl-shop.be/nl-BE/VitaVerde-Keramische-pan-24-cm/p100195917",
         "https://www.lidl-shop.be/nl-BE/SHEFFIELD-Keyboardstandaard/p100206408",
         "https://www.lidl-shop.be/nl-BE/Saxa-Loquuntur-Uno-2014/p100197423",
-        "https://www.lidl-shop.be/nl-BE/Ch-teau-Guiraud-Sauternes-Grand-Cru-Class-AOP-1995/p100161050"] # The last URL is not yet displayed properly, 'à' shows up as '\u00e2'
-
+        "https://www.lidl-shop.be/nl-BE/Ch-teau-Guiraud-Sauternes-Grand-Cru-Class-AOP-1995/p100161050",
+        "https://www.lidl-shop.be/nl-BE/Montepulciano-d-Abruzzo-DOP-2015/p100000087",
+        "https://www.lidl-shop.be/nl-BE/PARKSIDE-Set-steen-HSS-of-houtboren/p100214640",
+        "https://www.lidl-shop.be/nl-BE/FLORABEST-Handverticuteerder-of-cultivator/p100216438"]
 
 
 class ProductInfo:
@@ -66,8 +68,8 @@ class ProductInfo:
         return json.dumps({
             'name': self.name,
             'current_price': self.current_price,
-            'old_price': self.old_price
-        })
+            'old_price': self.old_price,
+        }, ensure_ascii=False)  # This option makes sure special characters such as à, é, è, etc are printed correctly
 
 
 class Category:
@@ -90,32 +92,28 @@ class Category:
 def extract_product_data(html):
     soup = bs4.BeautifulSoup(html, 'html.parser')
 
-    nametag = str(soup.select('div > div > h1')[0]) # This seems to be wrong when applied on some wine products, where a <b> tag is used instead of <h1>
-    pricetag_new = re.sub(r'\s+', ' ', str(soup.select('div > div > span > b')[0]))  # I did use string editing to remove tabs and newlines
+    nametag = str(soup.select('div > div > h1')[0])
+    pricetag_new = re.sub(r'\s+', ' ', str(soup.select('div > div > span > b')[0]))
+    # I did use string editing to remove tabs and newlines
     pricetag_old = str(soup.select('div > div > span > em > span'))
 
-    if pricetag_old == '[]': #If there's no promo for an article, no old_price is returned
+    if pricetag_old == '[]':  # If there's no promo for an article, no old_price is returned
         price_old = None
     else:
         price_old = float(re.match(r'^\[<span>(?P<price>[0-9.]+)<\/span>\]$', pricetag_old).group('price'))
 
-    product_rx = re.match(r'^<h1>(?P<product1>[0-9a-zA-Z âéèêà]+).(?P<product2>[0-9a-zA-Z âéèêà]+)<\/h1>$', nametag, flags=0) # Included âéèêà in regex to avoid trouble with some wines (e.g. Chàteau, saint-émilion,etc.)
-    price_new_rx = re.match(r'^<b> (?P<price1>[0-9]*)\.<sup>(?P<price2>[0-9]*)\*<\/sup>', pricetag_new, flags=0)
+    product_rx = re.match(r'^<h1>(?P<product1>[0-9a-zA-Z \-âéèêà´,]+).?(?P<product2>[0-9a-zA-Z \-âéèêà´,]*)<\/h1>$',
+                          nametag)
+    # Included [-âéèêà´,] in regex to avoid trouble with some wines (e.g. Chàteau, saint-émilion, d´Abruzzo,etc.)
+    price_new_rx = re.match(r'^<b> (?P<price1>[0-9]*)\.<sup>(?P<price2>[0-9]*)\*<\/sup>', pricetag_new)
 
-    product = product_rx.group('product1') + product_rx.group('product2') #Join product names
-    price_new = float(price_new_rx.group('price1')) + float(price_new_rx.group('price2')) / 100 # Join prices
+    product = product_rx.group('product1') + product_rx.group('product2')  # Join product names
+    price_new = round(float(price_new_rx.group('price1')) + float(price_new_rx.group('price2')) / 100, 2)  # Join prices
 
     return ProductInfo(name=product, current_price=price_new, old_price=price_old)
 
 
 def extract_categories(html):
-    """
-    There are quite some links to other categories on the website, the goal of this function is to return
-    all of them. I added a screenshot to show what I mean.
-    For every category you should create a Category object holding the url and the name of the category.
-    :param html: the html in text form.
-    :return: a list of Category objects with one entry for each category under 'assortiment'.
-    """
     soup = bs4.BeautifulSoup(html, 'html.parser')
 
     categories_tags = soup.select(".secondary-nav > li > a ")
@@ -153,6 +151,6 @@ if __name__ == '__main__':
 
             categories = extract_categories(html)
             for category in categories:
-               print(str(category))
+                print(str(category))
 
     exit(0)
