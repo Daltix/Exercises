@@ -74,7 +74,7 @@ class Category:
         self.name = name
 
     def __str__(self):
-        return '{category}: {url}'.format(category=name, url=url)
+        return '{category}: {url}'.format(category=self.name, url=self.url)
 
 
 def extract_product_data(html):
