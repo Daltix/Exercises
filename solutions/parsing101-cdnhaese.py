@@ -39,7 +39,7 @@ python parsing.py
 """
 
 # TODO insert your urls here!
-# First three URL are the given links, I added the other eight to make sure function extract_product_data works properly
+# First three URL are the given links, I added the other ten to make sure both functions work properly
 URLs = ["https://www.lidl-shop.be/nl-BE/ESMARA-Longshirt-voor-dames/p100214261",
         "https://www.lidl-shop.be/nl-BE/LIVARNOLIVING-Spiegelkast/p100211942",
         "https://www.lidl-shop.be/nl-BE/PARKSIDE-Cirkelzaagblad/p100197506",
@@ -50,8 +50,10 @@ URLs = ["https://www.lidl-shop.be/nl-BE/ESMARA-Longshirt-voor-dames/p100214261",
         "https://www.lidl-shop.be/nl-BE/Ch-teau-Guiraud-Sauternes-Grand-Cru-Class-AOP-1995/p100161050",
         "https://www.lidl-shop.be/nl-BE/Montepulciano-d-Abruzzo-DOP-2015/p100000087",
         "https://www.lidl-shop.be/nl-BE/PARKSIDE-Set-steen-HSS-of-houtboren/p100214640",
-        "https://www.lidl-shop.be/nl-BE/FLORABEST-Handverticuteerder-of-cultivator/p100216438"]
-
+        "https://www.lidl-shop.be/nl-BE/FLORABEST-Handverticuteerder-of-cultivator/p100216438",
+        "https://www.lidl-shop.be/nl-BE/Acties/a069967",
+        "https://www.google.be"] # Last two links are not productpages, they are added to control the error handling of
+                                #  both functions
 
 class ProductInfo:
     """
@@ -92,41 +94,67 @@ class Category:
 def extract_product_data(html):
     soup = bs4.BeautifulSoup(html, 'html.parser')
 
-    nametag = str(soup.select('div > div > h1')[0])
-    pricetag_new = re.sub(r'\s+', ' ', str(soup.select('div > div > span > b')[0]))
-    # I did use string editing to remove tabs and newlines
-    pricetag_old = str(soup.select('div > div > span > em > span'))
+    nametag = soup.select('div > div > h1')
+    pricetag_new = soup.select('div > div > span > b')
+    pricetag_old = soup.select('div > div > span > em > span')
+    price_error = False # Added to know if< only a price or a productname isn't found, or if neither is found.
+    product_error = False # Idem
 
-    if pricetag_old == '[]':  # If there's no promo for an article, no old_price is returned
-        price_old = None
+    try:
+        price_old = float(re.match(r'^\[<span>(?P<price>[0-9.]+)<\/span>\]$', str(pricetag_old[0])).group('price'))
+    except:
+        price_old = None # If there's no promo, no old price is returned.
+
+    try:
+        product_rx = re.match(r'^<h1>(?P<product1>[0-9a-zA-Z \-âéèêà´,]+).?(?P<product2>[0-9a-zA-Z \-âéèêà´,]*)<\/h1>$',
+                              str(nametag[0]))
+        # Included [-âéèêà´,] in regex to avoid trouble with some wines (e.g. Chàteau, saint-émilion, d´Abruzzo,etc.)
+        product = product_rx.group('product1') + product_rx.group('product2')  # Join product names
+    except:
+        product_error = True
+
+    try:
+        price_new_rx = re.match(r'^<b> (?P<price1>[0-9]*)\.<sup>(?P<price2>[0-9]*)\*<\/sup>',
+                                re.sub(r'\s+', ' ', str(pricetag_new[0])))
+        # Join prices:
+        price_new = round(float(price_new_rx.group('price1')) + float(price_new_rx.group('price2')) / 100,2)
+    except:
+        price_error = True
+
+    if price_error and not product_error:
+            return 'No price was found on this page, make sure a Lidl productpage is supplied.'
+    elif product_error and not price_error:
+            return 'No productname was found on this page, make sure a Lidl productpage is supplied.'
+    elif product_error and price_error:
+            return 'No price and no productname were found on this page, make sure a Lidl productpage is supplied.'
     else:
-        price_old = float(re.match(r'^\[<span>(?P<price>[0-9.]+)<\/span>\]$', pricetag_old).group('price'))
-
-    product_rx = re.match(r'^<h1>(?P<product1>[0-9a-zA-Z \-âéèêà´,]+).?(?P<product2>[0-9a-zA-Z \-âéèêà´,]*)<\/h1>$',
-                          nametag)
-    # Included [-âéèêà´,] in regex to avoid trouble with some wines (e.g. Chàteau, saint-émilion, d´Abruzzo,etc.)
-    price_new_rx = re.match(r'^<b> (?P<price1>[0-9]*)\.<sup>(?P<price2>[0-9]*)\*<\/sup>', pricetag_new)
-
-    product = product_rx.group('product1') + product_rx.group('product2')  # Join product names
-    price_new = round(float(price_new_rx.group('price1')) + float(price_new_rx.group('price2')) / 100, 2)  # Join prices
-
-    return ProductInfo(name=product, current_price=price_new, old_price=price_old)
+        return ProductInfo(name=product, current_price=price_new, old_price=price_old)
 
 
 def extract_categories(html):
     soup = bs4.BeautifulSoup(html, 'html.parser')
 
     categories_tags = soup.select(".secondary-nav > li > a ")
-    base_URL_rx = str(soup.select(".company-area > li > a")[0])
-    base_URL = re.match(r'<a .* href="(?P<base>.+)">.*</a>', base_URL_rx).group('base')
+    base_URL_rx = soup.select(".company-area > li > a")
+
+    try:
+        base_URL = re.match(r'<a .* href="(?P<base>.+)">.*</a>', str(base_URL_rx[0])).group('base')
+    except:
+        print('Base-url not found on page, using default: http://www.lidl-shop.be')
+        # In case the location of this link changes, we use the default link (which is unlikely to change anyway):
+        base_URL = 'http://www.lidl-shop.be'
+
     categories = []
 
-    for i in categories_tags:
-        a_string = re.sub(r'\s+', ' ', str(i))
-        regex = re.match(r'^<a .* href="(?P<link>.+)"> (?P<name>.+)</a>$', a_string)
-        category = regex.group('name')
-        link = base_URL + regex.group('link')
-        categories.append(Category(link, category))
+    if len(categories_tags) == 0:
+        print('The default categories are not findable on this page, make sure a Lidl productpage is supplied.')
+    else:
+        for i in categories_tags:
+            a_string = re.sub(r'\s+', ' ', str(i))
+            regex = re.match(r'^<a .* href="(?P<link>.+)"> (?P<name>.+)</a>$', a_string)
+            category = regex.group('name')
+            link = base_URL + regex.group('link')
+            categories.append(Category(link, category))
 
     return categories
 
