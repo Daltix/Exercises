@@ -29,6 +29,8 @@ Implement the 2 functions below:
 The objective is to learn as much as possible about parsing web pages.
 In case you get stuck you can always ask for help of course.
 You don't have to worry about strange error cases (like what if the site is offline).
+However you should pay attention, when selecting items, that your program does not crash if a certain
+element is not found (e.g a product with no promo, name, ...). The Pythonic way is to catch exceptions and handle them.
 Try to document your code as much as possible.
 
 Put your solution in a new file under the solutions directory.
