@@ -7,9 +7,9 @@ Nicolas Daelemans (nicolas.daelemans@hotmail.com) +32497894006
 """
 
 #-----------------------------------------------------------------------------------------------------------------------
-#############
-## REMARKS ##
-#############
+###############
+### REMARKS ###
+###############
 # 1) The program is written for dreamland-products only.
 #
 # 2) The given dreamland url's didn't have original prices or discounts. I went looking on the site for products who
