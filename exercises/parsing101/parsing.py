@@ -18,9 +18,7 @@
 
 import re, json
 import requests, bs4
-import ssl #This is for a problem i had where the SSL certificate of the site got a verification error
-import urllib
-import urllib.request
+
 
 """
 Objective
