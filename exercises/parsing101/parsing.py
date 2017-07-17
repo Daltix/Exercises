@@ -18,6 +18,9 @@
 
 import re, json
 import requests, bs4
+import ssl #This is for a problem i had where the SSL certificate of the site got a verification error
+import urllib
+import urllib.request
 
 """
 Objective
@@ -41,8 +44,9 @@ python parsing.py
 """
 
 # TODO insert your urls here!
-URLs = [
-]
+URLs = ["""https://www.brico.be/nl/bouw-materialen/ladders/omvormbare-ladders/sencys-omvormbare-ladder-aluminium-3-x-9-treden/5289839""",
+        """https://www.brico.be/nl/gereedschap-installatie/elektra/kabels-en-behuizing/elektrische-kabels/sencys-elektrische-kabel-'xvb-f2-3g1-5'-grijs-50-m/5233773""",
+"""https://www.brico.be/nl/gereedschap-installatie/elektra/kabels-en-behuizing/elektrakabel-accessoires/flesfitting-e27-met-schak.-2m-zwart/9806900"""]
 
 
 class ProductInfo:
@@ -110,10 +114,31 @@ def extract_product_data(html):
     :param html: the html string.
     :return: a ProductInfo object holding all found product data.
     """
-    return ProductInfo()
+    #My code
+    soup = bs4.BeautifulSoup(html,"html.parser")
+    #Name
+    name_dummy = soup.find('div',{"class":"product-detail_sections"}).find('h1',{"class":"product-detail_title"}).text.strip()#this is another way to get the data of interest, not sure if you approve of this way, so added the regex 
+    namehtml = soup.find('div',{"class":"product-detail_sections"}).find('h1',{"class":"product-detail_title"})
+    name = re.search(r'.*>(?P<name>.+\S)<.*',str(namehtml)).group('name')#regex code that does the same as name_dummy
+    #Price
+    price = soup.find('div',{"class":"product-detail_price"})
+    discount = re.search(r'.*product-detail_price-old-price.*',str(price))#Is there a discount?
+    new_price_dummy = soup.find('div',{"class":"product-detail_price-new-price"}).find('span',{"class":"product-detail_price-new-price-amount"}).text.strip()#again..the other way
+    new_pricehtml = soup.find('div',{"class":"product-detail_price-new-price"}).find('span',{"class":"product-detail_price-new-price-amount"})
+    new_price = re.search(r'\w*>\s+(?P<newprice_euro>\d+\.)<span class="product-detail_price-new-price-cent">(?P<newprice_cent>\d+)</span>',str(new_pricehtml))#The regex way
+    new_price = new_price.group('newprice_euro') + new_price.group('newprice_cent')#This is because of the splitted euro and cent parts in the HTML
+    if discount == None:#If there is no discount, the old price is the same as the new price
+        old_price = new_price
+    else:
+        old_price_dummy = soup.find('div',{"class":"product-detail_price-old-price"}).find('span',{"class":"product-detail_price-old-price-amount"}).text.strip()
+        old_pricehtml = soup.find('div',{"class":"product-detail_price-old-price"}).find('span',{"class":"product-detail_price-old-price-amount"})
+        old_price = re.search(r'.*>(?P<oldprice_euro>\d+\.)<span class="product-detail_price-old-price-cent">(?P<oldprice_cent>\d+)</span>',str(old_pricehtml))
+        old_price = old_price.group('oldprice_euro') + old_price.group('oldprice_cent')#again because the euro and cents are splitted in the html file
+        
+    return ProductInfo(name, new_price, old_price)
 
 
-def extract_categories(html):
+def extract_categories(html):#in progress
     """
     There are quite some links to other categories on the website, the goal of this function is to return
     all of them. I added a screenshot to show what I mean.
