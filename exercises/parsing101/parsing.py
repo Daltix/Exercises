@@ -152,7 +152,7 @@ def extract_categories(html):#in progress
     :param html: the html in text form.
     :return: a list of Category objects with one entry for each category under 'assortiment'.
     """
-    categories = []
+      categorie = []
     try:
         soup = bs4.BeautifulSoup(html,"html.parser")
     except ParseError:
@@ -174,12 +174,12 @@ def extract_categories(html):#in progress
                 subcategory_name = subcategories_name.group('subcategory')
             except:
                 print("Something went wrong in the regex")
-            categories[index] = Category(subcategory_link, subcategory_name)
-            print(categories[index])
+            
+            categorie.append(Category(subcategory_link, subcategory_name))
             index+=1
         
     
-    return categories
+    return categorie
 
 
 if __name__ == '__main__':
