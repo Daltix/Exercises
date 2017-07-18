@@ -112,28 +112,36 @@ def extract_product_data(html):
     :param html: the html string.
     :return: a ProductInfo object holding all found product data.
     """
-    #My code
-    soup = bs4.BeautifulSoup(html,"html.parser")
-    #Name
-    name_dummy = soup.find('div',{"class":"product-detail_sections"}).find('h1',{"class":"product-detail_title"}).text.strip()#this is another way to get the data of interest, not sure if you approve of this way, so added the regex 
-    namehtml = soup.find('div',{"class":"product-detail_sections"}).find('h1',{"class":"product-detail_title"})
-    name = re.search(r'.*>(?P<name>.+\S)<.*',str(namehtml)).group('name')#regex code that does the same as name_dummy
-    #Price
-    price = soup.find('div',{"class":"product-detail_price"})
-    discount = re.search(r'.*product-detail_price-old-price.*',str(price))#Is there a discount?
-    new_price_dummy = soup.find('div',{"class":"product-detail_price-new-price"}).find('span',{"class":"product-detail_price-new-price-amount"}).text.strip()#again..the other way
-    new_pricehtml = soup.find('div',{"class":"product-detail_price-new-price"}).find('span',{"class":"product-detail_price-new-price-amount"})
-    new_price = re.search(r'\w*>\s+(?P<newprice_euro>\d+\.)<span class="product-detail_price-new-price-cent">(?P<newprice_cent>\d+)</span>',str(new_pricehtml))#The regex way
-    new_price = new_price.group('newprice_euro') + new_price.group('newprice_cent')#This is because of the splitted euro and cent parts in the HTML
-    if discount == None:#If there is no discount, the old price is the same as the new price
-        old_price = new_price
-    else:
-        old_price_dummy = soup.find('div',{"class":"product-detail_price-old-price"}).find('span',{"class":"product-detail_price-old-price-amount"}).text.strip()
-        old_pricehtml = soup.find('div',{"class":"product-detail_price-old-price"}).find('span',{"class":"product-detail_price-old-price-amount"})
-        old_price = re.search(r'.*>(?P<oldprice_euro>\d+\.)<span class="product-detail_price-old-price-cent">(?P<oldprice_cent>\d+)</span>',str(old_pricehtml))
-        old_price = old_price.group('oldprice_euro') + old_price.group('oldprice_cent')#again because the euro and cents are splitted in the html file
-        
-    return ProductInfo(name, new_price, old_price)
+      #My code
+    try:
+        soup = bs4.BeautifulSoup(html,"html.parser")
+    except:
+        print("Unable to parse the provided link")
+        return ProductInfo()#Returns the method empty handed
+    try:
+        #Name
+        name_dummy = soup.find('div',{"class":"product-detail_sections"}).find('h1',{"class":"product-detail_title"}).text.strip()#this is another way to get the data of interest, not sure if you approve of this way, so added the regex 
+        namehtml = soup.find('div',{"class":"product-detail_sections"}).find('h1',{"class":"product-detail_title"})
+        name = re.search(r'.*>(?P<name>.+\S)<.*',str(namehtml)).group('name')#regex code that does the same as name_dummy
+        #Price
+        price = soup.find('div',{"class":"product-detail_price"})
+        discount = re.search(r'.*product-detail_price-old-price.*',str(price))#Is there a discount?
+        new_price_dummy = soup.find('div',{"class":"product-detail_price-new-price"}).find('span',{"class":"product-detail_price-new-price-amount"}).text.strip()#again..the other way
+        new_pricehtml = soup.find('div',{"class":"product-detail_price-new-price"}).find('span',{"class":"product-detail_price-new-price-amount"})
+        new_price = re.search(r'\w*>\s+(?P<newprice_euro>\d+\.)<span class="product-detail_price-new-price-cent">(?P<newprice_cent>\d+)</span>',str(new_pricehtml))#The regex way
+        new_price = new_price.group('newprice_euro') + new_price.group('newprice_cent')#This is because of the splitted euro and cent parts in the HTML
+        if discount == None:#If there is no discount, the old price is the same as the new price
+            old_price = new_price
+        else:
+            old_price_dummy = soup.find('div',{"class":"product-detail_price-old-price"}).find('span',{"class":"product-detail_price-old-price-amount"}).text.strip()
+            old_pricehtml = soup.find('div',{"class":"product-detail_price-old-price"}).find('span',{"class":"product-detail_price-old-price-amount"})
+            old_price = re.search(r'.*>(?P<oldprice_euro>\d+\.)<span class="product-detail_price-old-price-cent">(?P<oldprice_cent>\d+)</span>',str(old_pricehtml))
+            old_price = old_price.group('oldprice_euro') + old_price.group('oldprice_cent')#again because the euro and cents are splitted in the html file
+
+        return ProductInfo(name, new_price, old_price)
+    except:
+        print("Unable to fetch the right info, either name or price")
+        return ProductInfo()
 
 
 def extract_categories(html):#in progress
@@ -145,6 +153,32 @@ def extract_categories(html):#in progress
     :return: a list of Category objects with one entry for each category under 'assortiment'.
     """
     categories = []
+    try:
+        soup = bs4.BeautifulSoup(html,"html.parser")
+    except ParseError:
+        print("Unable to parse the provided link")
+        return ProductInfo()#Returns the method empty handed
+    index = 0#to keep track of where to write in the categories list
+    for categories in soup.findAll('ul',{"class":"nav-main_links nav-main_links--icons nav-main_links--2col"}):
+        categories_name = re.search(r'<li>$\n^<a href=".+">\s(?P<category>.*)</a>',str(categories),re.M)#this keeps the name of the category
+        for subcategories in categories.findAll('li'):
+            subcategories_link = re.search(r'<li>$\n^<a href="(?P<link>.*)">',str(subcategories),re.M)
+            try:
+                subcategory_link = ("https://www.brico.be"+subcategories_link.group('link'))#This searches for the link of the category
+                
+            except:
+                print("Something went wrong in the regex")
+            
+            subcategories_name = re.search(r'<li>$\n^<a href=".+">\s(?P<subcategory>.*)</a>$',str(subcategories),re.M)
+            try:
+                subcategory_name = subcategories_name.group('subcategory')
+            except:
+                print("Something went wrong in the regex")
+            categories[index] = Category(subcategory_link, subcategory_name)
+            print(categories[index])
+            index+=1
+        
+    
     return categories
 
 
