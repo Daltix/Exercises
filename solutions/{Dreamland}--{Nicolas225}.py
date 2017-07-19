@@ -96,9 +96,21 @@ def extract_product_data(html):
     :param html: the html string.
     :return: a ProductInfo object holding all found product data.
     """
-    name = extract_values("product_name")
-    current_price = extract_values("product_unitprice_ati")
-    original_price = extract_values2("price price--strikethrough")
+
+    ## OLD SOLUTION ##
+    #name = extract_values("product_name")
+    #current_price = extract_values("product_unitprice_ati")
+    #original_price = extract_values2("price price--strikethrough")
+
+    ## ADJUSTED SOLUTION ##
+    soup = BS(html, 'html.parser')
+    name = re.search(r'.*>(?P<name>.+\S)<.*', str(soup.select('h1')[0])).group("name")
+    current_price = re.search(r'(?P<price>[0-9(.|,)]+)', str(soup.select('span[itemprop="price"]')[0])).group(0)
+
+    try:
+        original_price = re.search(r'(?P<price>[0-9(.|,)]+)', str(soup.select(".price--strikethrough")[0])).group(0)
+    except:
+        original_price = None
 
     return ProductInfo(name,current_price,original_price)
 
