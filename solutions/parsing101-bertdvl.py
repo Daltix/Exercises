@@ -42,12 +42,9 @@ python parsing.py
 
 URLs = ["https://www.hubo.be/nl/p/zelftrekkende-benzine-grasmaaier-98-5cc-41cm-poweg63772/827608.html",
 "https://www.hubo.be/nl/p/klopboormachine-1200w-powx028/497678.html",
-"https://www.hubo.be/nl/p/reserverolhouder-pleeboy-chroom/103015.html"
+"https://www.hubo.be/nl/p/reserverolhouder-pleeboy-chroom/103015.html",
+"https://www.google.be"
 ]
-
-
-"https://www.hubo.be/nl/p/klopboormachine-1200w-powx028/497678.html",
-"https://www.hubo.be/nl/p/reserverolhouder-pleeboy-chroom/103015.html"
 
 class ProductInfo:
     """
@@ -73,11 +70,10 @@ class Category:
     Holds information about a category.
     """
 
-    def __init__(self, url: str, name: str = None, parentcategory = None):
+    def __init__(self, url: str, name: str = None):
         self.url = url
         self.name = name
-        #self.parentcategory = parentcategory
-        #maybe add a tree-like structure for moving through categories
+
 
     """
             :param url: the url to the category.
@@ -127,10 +123,70 @@ def extract_product_data(html):
         extra_info[element[0]] = re.sub(r'\xa0', '',element[2])
 
     return ProductInfo(name, new_price, old_price, extra_info)
-    #remark: extra_info seems to not work with "Uitworp": "Achterwaarts, Opvangsysteem, Zijwaarts" => written wrong by webdesigner
+    #remark: extra_info seems to not work with "Uitworp": "Achterwaarts, Opvangsysteem, Zijwaarts" => written unconventionally by webdesigner
 
+categories = []
 
 def extract_categories(html):
+    soup = bs4.BeautifulSoup(html, 'html.parser')
+    categories.clear()
+
+    #try to find the url which direct to the top categories page, if it isn't present an empty list will be returned
+    #then initiate the add_categories_to_list() function with this url
+    try:
+        top_categories_html = soup.find_all("a", class_="navigation__link")[0]
+        top_categories_url = re.search(r'<a class="navigation__link" href="(.*)">Assortiment</a>', str(top_categories_html)).group(1)
+        add_categories_to_list(top_categories_url)
+    except:
+        return categories
+
+    top_categories_html_list = soup.find_all("a", class_="navigation__link")[0]
+    print(top_categories_html_list)
+    return categories
+
+    #remark: the subcategories only appear when hovering, it should be possible to interact with the page
+    #using selenium or something similar but just going to the category url's seems easier
+
+
+#recursive function which adds all of the categories to the list
+def add_categories_to_list(current_url):
+
+    #get the category html elements from the given url
+    try:
+        response = requests.get(current_url)
+        html = response.text
+        soup = bs4.BeautifulSoup(html, 'html.parser')
+        categories_html_list = soup.find_all("li", class_="category-list__item category-item")
+
+        #iterate through all of these elements and get the name and url
+        for element in categories_html_list:
+            element_url = re.search(r'<a class="h4 category-item__link" href="(.*)">', str(element)).group(1)
+            element_url = "https://www.hubo.be" + element_url
+            element_name = re.search(r'<span class="category-item__title">(.*)</span>', str(element)).group(1)
+            element_name = re.sub(r'&amp;', '&',element_name)
+            #print(element_name)
+
+            #create a Category object with this information and add it to the category list
+            category_element = Category(element_url,element_name)
+            categories.append(category_element)
+
+            #recurse with the url of the current element
+            add_categories_to_list(element_url)
+    except:
+        print("EOF")
+
+    # TODO hubo cadeaukaart en shop per merk
+    '''
+    list.extend(category_element)
+
+    print(list)
+    '''
+
+
+
+
+
+
     """
     There are quite some links to other categories on the website, the goal of this function is to return
     all of them. I added a screenshot to show what I mean.
@@ -138,8 +194,8 @@ def extract_categories(html):
     :param html: the html in text form.
     :return: a list of Category objects with one entry for each category under 'assortiment'.
     """
-    categories = []
-    return categories
+
+
 
 
 if __name__ == '__main__':
