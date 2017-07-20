@@ -46,6 +46,9 @@ URLs = ["https://www.hubo.be/nl/p/zelftrekkende-benzine-grasmaaier-98-5cc-41cm-p
 ]
 
 
+"https://www.hubo.be/nl/p/klopboormachine-1200w-powx028/497678.html",
+"https://www.hubo.be/nl/p/reserverolhouder-pleeboy-chroom/103015.html"
+
 class ProductInfo:
     """
     Container class for product information.
@@ -55,14 +58,13 @@ class ProductInfo:
         self.name = name
         self.current_price = current_price
         self.old_price = old_price
-        #self.extra_info = extra_info
-        #later on (maybe): dict containing all other available information
-
+        self.extra_info = extra_info
     def __str__(self):
         return json.dumps({
             'name': self.name,
             'current_price': self.current_price,
-            'old_price': self.old_price
+            'old_price': self.old_price,
+            'extra_info': self.extra_info
         })
 
 
@@ -91,64 +93,41 @@ class Category:
 
 def extract_product_data(html):
     soup = bs4.BeautifulSoup(html, 'html.parser')
-    #this can create errors, will be improved later but now the classes don't need to be looked up anymore
 
+    #try to look for a name and price, if those are not present, the product page is invalid
+    try:
+        name_html = soup.find_all("div", class_="hubo-title__text")[0]
+        new_price_html = soup.find_all("div", class_="price")[0]
+    except:
+        print("Invalid product page")
+        return ProductInfo()
 
-    namehtml = soup.find_all("div", class_="hubo-title__text")[0]
+    #get content of "price" and "name" html tags
+    name = re.search(r'<div class="hubo-title__text">(.*)</div>',str(name_html)).group(1)
 
-    newpricehtml = soup.find_all("div", class_="price")[0]
+    #get the new/current price
+    testnewprice = re.search(r'<div class="price">([0-9]*)<span>([0-9,]*).*</span></div>', str(new_price_html))
+    new_price = float(testnewprice.group(1) + re.sub(r',', '.', testnewprice.group(2)))
 
-    oldpricehtml = soup.find_all("div", class_="striped")
+    #if there is a discount, find it otherwise new_price and old_price are the same
+    old_price = new_price
+    try:
+        old_price_html = soup.find_all("span", class_="striped")[0]
+        old_price = re.search(r'<span class="striped">([0-9,]*).*</span>', str(old_price_html)).group(1)
+        old_price = float(re.sub(',', '.', old_price))
+    except:
+        pass
 
-    extrainfohtmldiv = soup.find_all("div", class_="hb_specs")[0]
-    extrainfohtml = extrainfohtmldiv.find_all("tr")
+    #collects all of the extra information and stores it in a dict
+    extra_info_html_div = soup.find_all("div", class_="hb_specs")[0]
+    extra_info_html = extra_info_html_div.find_all("tr")
+    extra_info = {}
+    extra_info_list = re.findall(r'<td width="50%">(.*)</td>[.\n]*<td>(\s)*(.*)</td>', str(extra_info_html))
+    for element in extra_info_list:
+        extra_info[element[0]] = re.sub(r'\xa0', '',element[2])
 
-    #todo use regex to only select the tr's wich contain width="50%"
-
-    for element in extrainfohtml:
-        print(element)
-
-
-
-
-
-
-
-
-
-
-
-    """
-    Parse the HTML using BeautifulSoup to find the most important HTML elements which contain information 
-    about the main product on the page. You can ignore any other products which might be on the bottom of the page.
-      
-    The following are the most important:
-        - Name (sometimes they put extra info in the product's name e.g Grasmachine 4 wielen) 
-        - Current price
-            Note that often prices are split in 2 like this: 
-            <span>
-                19
-                <span>00</span>
-            <span> 
-            In this case grab the enclosing <span>.
-        
-        - Old price (if the product is in promo).
-        
-    Once you have the HTML elements, extract their values using a regex. 
-    Do NOT use string operations such as split or whatever...
-      
-      Example: 
-        HTML element:   <p> Name of the product </p>
-        regex:          '^<p>(?P<name>[\w\-\s]+)<\/p>$'          (Tip: we use named capturing groups in our regexes.)
-        name:           Name of the product
-    
-    After extracting the values using a regex you can save the strings in a ProductInfo object, like so:
-    ProductInfo(name='Grasmaaier', current_price='50,50', old_price='55,50')
-    
-    :param html: the html string.
-    :return: a ProductInfo object holding all found product data.
-    """
-    return ProductInfo()
+    return ProductInfo(name, new_price, old_price, extra_info)
+    #remark: extra_info seems to not work with "Uitworp": "Achterwaarts, Opvangsysteem, Zijwaarts" => written wrong by webdesigner
 
 
 def extract_categories(html):
