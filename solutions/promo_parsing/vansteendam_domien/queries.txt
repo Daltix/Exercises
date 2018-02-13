@@ -1,0 +1,5 @@
+# Amount of shops
+select count(distinct(shop)) from promo_strings
+
+# Amount of promo_strings per shop
+select shop,count(promo_string) from promo_strings group by shop
